@@ -6,9 +6,12 @@ from tensorflow.keras.preprocessing import image
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "static/uploads"
+# ✅ REQUIRED FOR RENDER
+UPLOAD_FOLDER = "/tmp/uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# ✅ Prevent large upload crashes
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB
 
 # Load model
 model = load_model("crop_disease_model.h5")
@@ -28,29 +31,29 @@ def predict_disease(img_path):
 
     return class_names[index], confidence
 
-# ✅ HOME + PREDICT (SAME PAGE)
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = None
     confidence = None
-    img_path = None
 
     if request.method == "POST":
-        file = request.files["image"]
-        if file:
-            save_path = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-            file.save(save_path)
+        if "image" not in request.files:
+            return "No image uploaded", 400
 
-            result, confidence = predict_disease(save_path)
-            img_path = save_path
+        file = request.files["image"]
+        if file.filename == "":
+            return "No selected file", 400
+
+        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(file_path)
+
+        result, confidence = predict_disease(file_path)
 
     return render_template(
         "index.html",
         result=result,
-        confidence=confidence,
-        img_path=img_path
+        confidence=confidence
     )
 
-# ✅ RUN
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
