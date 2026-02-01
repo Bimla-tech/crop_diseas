@@ -1,36 +1,53 @@
 import os
 import numpy as np
+import tensorflow as tf
 from flask import Flask, request, render_template
-from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 
 app = Flask(__name__)
 
-# ✅ REQUIRED FOR RENDER
+# ✅ Render-safe upload directory
 UPLOAD_FOLDER = "/tmp/uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ Prevent large upload crashes
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5MB
+# ✅ Limit upload size (5MB)
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
-# Load model
-model = load_model("crop_disease_model.h5")
+# ===============================
+# LOAD TFLITE MODEL
+# ===============================
+interpreter = tf.lite.Interpreter(model_path="crop_disease_model.tflite")
+interpreter.allocate_tensors()
 
-# Load class names
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# ===============================
+# LOAD CLASS NAMES
+# ===============================
 with open("class_names.txt", "r") as f:
     class_names = [line.strip() for line in f.readlines()]
 
+# ===============================
+# PREDICTION FUNCTION
+# ===============================
 def predict_disease(img_path):
     img = image.load_img(img_path, target_size=(128, 128))
-    img_array = image.img_to_array(img) / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
+    img = image.img_to_array(img) / 255.0
+    img = np.expand_dims(img, axis=0).astype(np.float32)
 
-    preds = model.predict(img_array)
+    interpreter.set_tensor(input_details[0]["index"], img)
+    interpreter.invoke()
+
+    preds = interpreter.get_tensor(output_details[0]["index"])
     index = np.argmax(preds)
-    confidence = preds[0][index]
+    confidence = float(preds[0][index])
 
     return class_names[index], confidence
 
+# ===============================
+# ROUTES
+# ===============================
 @app.route("/", methods=["GET", "POST"])
 def index():
     result = None
@@ -55,5 +72,8 @@ def index():
         confidence=confidence
     )
 
+# ===============================
+# START APP
+# ===============================
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=10000)
