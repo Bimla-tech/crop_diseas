@@ -12,7 +12,7 @@ Crop diseases significantly reduce yield and cause economic losses. Early detect
 This project uses **Convolutional Neural Networks (CNN)** to automatically detect diseases in crop leaves from images. Farmers can upload a leaf image, and the model predicts whether the leaf is **healthy** or affected by a specific disease, along with actionable suggestions.
 
 ---
-
+<img src="IMG-20260405-WA0017.jpg" width=800/>
 ## 🧠 Features
 
 - CNN-based deep learning model for disease detection.
